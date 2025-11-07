@@ -1,0 +1,342 @@
+@page "/"
+@using FitnessBotApp.Models
+@rendermode InteractiveServer
+@inject FitnessService FitnessService
+@inject IJSRuntime JS
+
+<h3 class="chat-title">💬 Fitness Bot Chat</h3>
+
+<div class="chat-window" @ref="chatWindowRef">
+    @foreach (var message in ChatHistory)
+    {
+        <div class="chat-message-container @(message.Sender)">
+            <img src="@(message.Sender == "user" ? "img/user.png" : "img/bot.png")" class="avatar" />
+            <div class="chat-bubble">
+                @if (message.Sender == "bot" && IsHtml(message.Text))
+                {
+                    @((MarkupString)message.Text)
+                    //show pdf button when plan generated
+                    @if (!string.IsNullOrEmpty(PlanHtml))
+                    {
+                        <div id="plan-container" style="white-space: pre-wrap; font-family: monospace; border: 1px solid #ccc; padding: 1rem; background: #f9f9f9;">
+                            @((MarkupString)PlanHtml)
+                        </div>
+                        <button class="btn btn-primary mt-3" @onclick="DownloadPdf">Download PDF</button>
+                    }
+                    else
+                    {
+                        <p>No plan generated yet.</p>
+                    }
+                }
+                else
+                {
+                    @message.Text
+                }
+            </div>
+        </div>
+    }
+
+    @if (IsBotTyping)
+    {
+        <div class="chat-message bot">
+            <img src="img/bot.png" class="avatar" />
+            <div class="bubble typing-indicator">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+    }
+
+    @*<div class="chat-input-container">
+        <input @bind="UserInput" @bind:event="oninput" @onkeydown="HandleKeyPress" placeholder="Type your message..." class="chat-input" />
+        <button class="send-button" @onclick="SendMessage" disabled="@string.IsNullOrWhiteSpace(UserInput)">Send</button>
+    </div>*@
+</div>
+<div class="chat-input-container">
+        <input @bind="UserInput" @bind:event="oninput" @onkeydown="HandleKeyPress" placeholder="Type your message..."
+            class="chat-input" />
+        <button class="send-button" @onclick="SendMessage"
+            disabled="@string.IsNullOrWhiteSpace(UserInput)">Send</button>
+</div>
+
+@code {
+    private string UserInput;
+    private List<ChatMessage> ChatHistory = new();
+    private int Step = -1;
+    private UserInputData CollectedInput = new();
+
+    private UserType CurrentUserType = UserType.Guest;
+    private UserIntent CurrentIntent = UserIntent.None;
+    private ElementReference chatWindowRef;
+    private bool IsBotTyping = false;
+
+    private string? PlanHtml;
+
+    protected override void OnInitialized()
+    {
+        ChatHistory.Add(new ChatMessage("bot", "👋 Hi! Are you a new, existing, or guest user?"));
+    }
+
+    private async Task HandleKeyPress(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !string.IsNullOrWhiteSpace(UserInput))
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task SendMessage()
+    {
+        var input = UserInput?.Trim();
+        if (string.IsNullOrWhiteSpace(input))
+            return;
+
+        ChatHistory.Add(new ChatMessage("user", input));
+
+        IsBotTyping = true;
+        StateHasChanged();
+        await ScrollToBottom();
+
+        // Handle "start over" command anytime
+        if (input.ToLower().Contains("start over"))
+        {
+            ResetChat();
+            return;
+        }
+
+        if (Step == -1)
+        {
+            CurrentUserType = DetectUserType(input);
+            CurrentIntent = DetectIntent(input);
+
+            ChatHistory.Add(new ChatMessage("bot", $"Great! You’re a {CurrentUserType}. Let’s build your plan."));
+            ChatHistory.Add(new ChatMessage("bot", "🎯 What’s your fitness goal? (e.g., Build Muscle, Lose Fat)"));
+            Step = 0;
+            UserInput = "";
+            return;
+        }
+
+        switch (Step)
+        {
+            case 0:
+                if (IsValidGoal(input))
+                {
+                    CollectedInput.Goal = input;
+                    ChatHistory.Add(new ChatMessage("bot", "How many days a week can you work out? (e.g., 3, 4, 5)"));
+                    Step++;
+                }
+                else
+                {
+                    ChatHistory.Add(new ChatMessage("bot", "❗ Please enter a valid fitness goal like 'Build Muscle' or 'Lose Fat'."));
+                    return;
+                }
+                break;
+
+            case 1:
+                if (int.TryParse(input, out var days) && days >= 1 && days <= 7)
+                {
+                    CollectedInput.DaysPerWeek = days;
+                    ChatHistory.Add(new ChatMessage("bot", "What’s your body type? (Ectomorph (The Naturally Slim), Mesomorph (The Athletic Build), Endomorph (The Curvy or Stocky Type))"));
+                    Step++;
+                }
+                else
+                {
+                    ChatHistory.Add(new ChatMessage("bot", "❗ Please enter a valid number of workout days (1-7)."));
+                    return;
+                }
+                break;
+
+            case 2:
+                if (IsValidBodyType(input))
+                {
+                    CollectedInput.BodyType = input;
+                    ChatHistory.Add(new ChatMessage("bot", "What's your weight (kg)?"));
+                    Step++;
+                }
+                else
+                {
+                    ChatHistory.Add(new ChatMessage("bot", "❗ Please enter Ectomorph (The Naturally Slim), Mesomorph (The Athletic Build), or Endomorph (The Curvy or Stocky Type)."));
+                    return;
+                }
+                break;
+
+            case 3:
+                if (double.TryParse(input, out var weight) && weight > 0)
+                {
+                    CollectedInput.Weight = weight;
+                    ChatHistory.Add(new ChatMessage("bot", "Height (cm)?"));
+                    Step++;
+                }
+                else
+                {
+                    ChatHistory.Add(new ChatMessage("bot", "❗ Enter a valid positive number for weight."));
+                    return;
+                }
+                break;
+
+            case 4:
+                if (double.TryParse(input, out var height) && height > 0)
+                {
+                    CollectedInput.Height = height;
+                    ChatHistory.Add(new ChatMessage("bot", "Gender? (Male/Female)"));
+                    Step++;
+                }
+                else
+                {
+                    ChatHistory.Add(new ChatMessage("bot", "❗ Enter a valid positive number for height."));
+                    return;
+                }
+                break;
+
+            case 5:
+                if (IsValidGender(input))
+                {
+                    CollectedInput.Gender = input;
+                    ChatHistory.Add(new ChatMessage("bot", "Diet Preference? (Veg / Non-Veg)"));
+                    Step++;
+                }
+                else
+                {
+                    ChatHistory.Add(new ChatMessage("bot", "❗ Please enter 'Male' or 'Female' for gender."));
+                    return;
+                }
+                break;
+
+            case 6:
+                if (IsValidDietPreference(input))
+                {
+                    CollectedInput.DietPreference = input;
+                    ChatHistory.Add(new ChatMessage("bot", "What is your current fitness level? (Beginner / Intermediate / Expert)"));
+                    Step++;
+                }
+                else
+                {
+                    ChatHistory.Add(new ChatMessage("bot", "❗ Please enter 'Veg' or 'Non-Veg' for diet preference."));
+                    return;
+                }
+                break;
+
+            case 7:
+                if (IsValidFitnessLevel(input))
+                {
+                    CollectedInput.FitnessLevel = input;
+                    ChatHistory.Add(new ChatMessage("bot", "Generating your plan..."));
+                    await Task.Delay(1000);
+                    var plan = FitnessService.GeneratePlan(CollectedInput);
+                    ChatHistory.Add(new ChatMessage("bot", plan));
+                     // Convert line breaks to <br> for HTML and simple bold syntax to <b>
+                    PlanHtml = plan.Replace("\n", "<br>").Replace("**", "<b>").Replace("</b>", "</b>");  // minimal, adjust as needed
+                    Step++;
+                }
+                else
+                {
+                    ChatHistory.Add(new ChatMessage("bot", "❗ Please enter Beginner, Intermediate, or Expert."));
+                    return;
+                }
+                break;
+
+            default:
+                ChatHistory.Add(new ChatMessage("bot", "If you want to start over, just type 'start over'."));
+                break;
+        }
+
+        UserInput = "";
+        IsBotTyping = false;
+        StateHasChanged();
+        await ScrollToBottom();
+    }
+
+    private void ResetChat()
+    {
+        ChatHistory.Clear();
+        ChatHistory.Add(new ChatMessage("bot", "🔄 Chat restarted. Are you a new, existing, or guest user?"));
+        Step = -1;
+        CollectedInput = new();
+        CurrentUserType = UserType.Guest;
+        CurrentIntent = UserIntent.None;
+        UserInput = "";
+        StateHasChanged();
+    }
+
+    private bool IsValidGoal(string input)
+    {
+        var validGoals = new List<string> { "build muscle", "lose fat", "gain strength", "improve endurance", "general fitness" };
+        return validGoals.Any(g => input.ToLower().Contains(g));
+    }
+
+    private bool IsValidBodyType(string input)
+    {
+        var val = input.ToLower();
+        return val.Contains("ecto") || val.Contains("meso") || val.Contains("endo");
+    }
+
+    private bool IsValidGender(string input)
+    {
+        var val = input.ToLower();
+        return val == "male" || val == "female";
+    }
+
+    private bool IsValidDietPreference(string input)
+    {
+        var val = input.ToLower();
+        return val == "veg" || val == "non-veg" || val == "non veg" || val == "nonveg";
+    }
+
+    private bool IsValidFitnessLevel(string input)
+    {
+        var val = input.ToLower();
+        return val == "beginner" || val == "intermediate" || val == "expert";
+    }
+
+    private UserType DetectUserType(string input)
+    {
+        var val = input.ToLower();
+
+        if (val.Contains("new")) return UserType.New;
+        if (val.Contains("exist") || val.Contains("login") || val.Contains("my plan")) return UserType.Existing;
+
+        return UserType.Guest;
+    }
+
+    private UserIntent DetectIntent(string input)
+    {
+        var val = input.ToLower();
+
+        if (val.Contains("new plan") || val.Contains("start")) return UserIntent.CreateNewPlan;
+        if (val.Contains("update") || val.Contains("change")) return UserIntent.UpdatePlan;
+
+        return UserIntent.AskQuestion;
+    }
+
+    private bool IsHtml(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return false;
+        // A simple check: if input contains HTML tags
+        return input.Contains("<") && input.Contains(">");
+    }
+
+    private async Task ScrollToBottom()
+    {
+        await JS.InvokeVoidAsync("scrollToBottom", chatWindowRef);
+    }
+
+    private async Task DownloadPdf()
+    {
+        // Call the JS function to export #plan-container to PDF
+        await JS.InvokeVoidAsync("exportToPdf", "plan-container", "FitnessPlan.pdf");
+    }
+
+    private class ChatMessage
+    {
+        public string Sender { get; }
+        public string Text { get; }
+
+        public ChatMessage(string sender, string text)
+        {
+            Sender = sender;
+            Text = text;
+        }
+    }
+
+    private enum UserType { Guest, New, Existing }
+    private enum UserIntent { None, CreateNewPlan, UpdatePlan, AskQuestion }
+}

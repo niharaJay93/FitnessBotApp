@@ -1,0 +1,49 @@
+{
+  "Files": [
+    {
+      "Id": "/Users/niharajayasinghe/Documents/Dev/Projects/FitnessBotApp_1.2/obj/Debug/net8.0/scopedcss/projectbundle/FitnessBotApp.bundle.scp.css",
+      "PackagePath": "staticwebassets/FitnessBotApp.bundle.scp.css"
+    },
+    {
+      "Id": "/Users/niharajayasinghe/Documents/Dev/Projects/FitnessBotApp_1.2/wwwroot/app.css",
+      "PackagePath": "staticwebassets/app.css"
+    },
+    {
+      "Id": "/Users/niharajayasinghe/Documents/Dev/Projects/FitnessBotApp_1.2/wwwroot/bootstrap/bootstrap.min.css",
+      "PackagePath": "staticwebassets/bootstrap/bootstrap.min.css"
+    },
+    {
+      "Id": "/Users/niharajayasinghe/Documents/Dev/Projects/FitnessBotApp_1.2/wwwroot/bootstrap/bootstrap.min.css.map",
+      "PackagePath": "staticwebassets/bootstrap/bootstrap.min.css.map"
+    },
+    {
+      "Id": "/Users/niharajayasinghe/Documents/Dev/Projects/FitnessBotApp_1.2/wwwroot/favicon.png",
+      "PackagePath": "staticwebassets/favicon.png"
+    },
+    {
+      "Id": "/Users/niharajayasinghe/Documents/Dev/Projects/FitnessBotApp_1.2/wwwroot/img/bot.png",
+      "PackagePath": "staticwebassets/img/bot.png"
+    },
+    {
+      "Id": "/Users/niharajayasinghe/Documents/Dev/Projects/FitnessBotApp_1.2/wwwroot/img/user.png",
+      "PackagePath": "staticwebassets/img/user.png"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.FitnessBotApp.Microsoft.AspNetCore.StaticWebAssets.props",
+      "PackagePath": "build\\Microsoft.AspNetCore.StaticWebAssets.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.build.FitnessBotApp.props",
+      "PackagePath": "build\\FitnessBotApp.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildMultiTargeting.FitnessBotApp.props",
+      "PackagePath": "buildMultiTargeting\\FitnessBotApp.props"
+    },
+    {
+      "Id": "obj/Debug/net8.0/staticwebassets/msbuild.buildTransitive.FitnessBotApp.props",
+      "PackagePath": "buildTransitive\\FitnessBotApp.props"
+    }
+  ],
+  "ElementsToRemove": []
+}

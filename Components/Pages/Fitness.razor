@@ -1,0 +1,29 @@
+@using FitnessBotApp.Models
+@inject FitnessService FitnessService
+
+<h3>Workout Plans</h3>
+<ul>
+    @foreach(var plan in workoutPlans)
+    {
+        <li>@plan.PlanDetails</li>
+    }
+</ul>
+
+<h3>Meal Plans</h3>
+<ul>
+    @foreach(var meal in mealPlans)
+    {
+        <li>@meal.MealDetails</li>
+    }
+</ul>
+
+@code {
+    private List<WorkoutPlan> workoutPlans = new();
+    private List<MealPlan> mealPlans = new();
+
+    protected override void OnInitialized()
+    {
+        workoutPlans = FitnessService.GetWorkoutPlans().ToList();
+        mealPlans = FitnessService.GetMealPlans().ToList();
+    }
+}
